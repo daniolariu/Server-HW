@@ -1,8 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const Joi = require('joi');
 const app = express();
 const port = 3005;
+const Car = require('./model/carModel');
 
 app.use(express.json());
 
@@ -15,15 +15,6 @@ mongoose.connect('mongodb+srv://admin:admin@cluster0.vryvacv.mongodb.net/Cars-AP
   })
   .catch(err => console.error('Could not connect to MongoDB...'));
 
-function validateCar(car)
-{
-  const schema = Joi.object({
-    brand: Joi.string().min(3).required(),
-    model: Joi.string().min(3).required(),
-    year: Joi.number().min(4).required()
-  });
-  return schema.validate(car);
-}
 
 const cars = [
   { id: 1, brand: 'BMW', model: 'M4', year: 2019 },
@@ -32,54 +23,57 @@ const cars = [
 ];
 
 app.get('/' , (req, res) => {
-  res.send('Welcome to the homepage');
+  try {
+    res.send('Welcome to the homepage');
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
   });
 
-app.get('/cars' , (req, res) => {
-  res.send(cars);
-  });
-app.get('/cars/:id' , (req, res) => {
-  const car = cars.find(cars => cars.id === parseInt(req.params.id));
-  if (!car) return res.status(404).send('The car with the given ID was not found');
-  res.send(car);
+app.get('/cars' , async(req, res) => {
+  try {
+    const cars = await Car.find();
+    res.status(200).json(cars);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }});
+
+app.get('/cars/:id' , async(req, res) => {
+  try {
+    const car = await Car.findById(req.params.id);
+    res.status(200).json(car);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
   });
 
-app.post('/cars' , (req, res) => {
-  
-  const { error } = validateCar(req.body);
-  if(error)
-    return res.status(400).send(error.details[0].message);
-  const car = {
-    id: cars.length+1,
-    brand: req.body.brand,
-    model: req.body.model,
-    year: req.body.year
-  };
-  cars.push(car);
-  res.send(car);
+app.post('/cars' , async(req, res) => {
+  try {
+    const car = await Car.create(req.body);
+    res.status(200).json(car);
+  }
+  catch (err) {
+    res.status(500).send(err.message);
+  }
   });
 
-  app.put('/cars/:id' , (req, res) => {
-    const car = cars.find(cars => cars.id === parseInt(req.params.id));
-    if (!car)  return res.status(404).send('The car with the given ID was not found');
-    const schema = Joi.object({
-      brand: Joi.string().min(3).required(),
-      model: Joi.string().min(3).required(),
-      year: Joi.number().min(4).required()
+  app.put('/cars/:id' , async(req, res) => {
+   try {
+    const car = await Car.findByIdAndUpdate(req.params.id, req.body);
+   if (!car) return res.status(404).send('The car with the given ID was not found');
+   const updatedCar = await Car.findById(req.params.id);
+   res.status(200).json(updatedCar);
+  } catch (err) {
+    res.status(500).send(err.message);
+   }
     });
-    const result = schema.validate(req.body);
-    if(result.error)
-      return res.status(400).send(result.error.details[0].message);
-    car.brand = req.body.brand;
-    car.model = req.body.model;
-    car.year = req.body.year;
-    res.send(car);
-    });
 
-    app.delete('/cars/:id' , (req, res) => {
-      const car = cars.find(cars => cars.id === parseInt(req.params.id));
-      if (!car) return res.status(404).send('The car with the given ID was not found');
-      const index = cars.indexOf(car);
-      cars.splice(index, 1);
-      res.send(car);
+    app.delete('/cars/:id' , async(req, res) => {
+      try {
+        const car = await Car.findByIdAndDelete(req.params.id);
+        if (!car) return res.status(404).send('The car with the given ID was not found');
+        res.status(200).json(car);
+      } catch (err) {
+        res.status(500).send(err.message);
+      }
       });
